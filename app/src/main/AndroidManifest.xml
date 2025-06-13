@@ -40,7 +40,8 @@
 
         <activity
             android:name="com.rosan.installer.ui.activity.AboutPageActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.Installer" />
 
         <activity
             android:name="com.rosan.installer.ui.activity.InstallerActivity"
@@ -79,6 +80,13 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ui.activity.InstallTriggerActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false"
+            android:taskAffinity=""
+            android:excludeFromRecents="true" />
 
         <service
             android:name="com.rosan.installer.data.installer.model.impl.InstallerService"

@@ -1,22 +1,21 @@
 package com.rosan.installer.data.installer.model.impl.installer
 
-import android.Manifest
 import android.app.Notification
+import android.app.PendingIntent
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
-import android.widget.Toast
+import android.content.Intent
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmapOrNull
 import com.rosan.installer.R
 import com.rosan.installer.data.app.util.getInfo
 import com.rosan.installer.data.installer.model.entity.ProgressEntity
 import com.rosan.installer.data.installer.repo.InstallerRepo
+import com.rosan.installer.ui.activity.InstallTriggerActivity
+import com.rosan.installer.ui.activity.InstallerActivity
 import com.rosan.installer.util.getErrorMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -116,7 +115,7 @@ class ForegroundInfoHandler(scope: CoroutineScope, installer: InstallerRepo) :
             is ProgressEntity.InstallFailed -> onInstallFailed(builder)
             is ProgressEntity.InstallSuccess -> onInstallSuccess(builder)
             is ProgressEntity.Finish -> null
-            else -> onReady(builder)
+            else -> null
         }
     }
 
@@ -149,7 +148,11 @@ class ForegroundInfoHandler(scope: CoroutineScope, installer: InstallerRepo) :
 
     private fun getString(@StringRes resId: Int): String = context.getString(resId)
 
-    private fun setNotification(notification: Notification? = null) {
+    /*private fun setNotification(notification: Notification? = null) {
+        *//*        // ======================= 在这里加上日志 =======================
+                val title = notification?.extras?.getCharSequence(Notification.EXTRA_TITLE)
+                Log.d("NotificationIdDebug", "setNotification called. ID: $notificationId, Title: $title")
+                // ==============================================================*//*
         if (notification == null) {
             notificationManager.cancel(notificationId)
             return
@@ -165,17 +168,42 @@ class ForegroundInfoHandler(scope: CoroutineScope, installer: InstallerRepo) :
                 // 如果权限未被授予
                 // 在这里不应该调用 notify()
                 // TODO 应该在这里引导用户去开启权限
-                // 显示一条 Toast 提示用户开启通知权限
-                Toast.makeText(
-                    context,
-                    getString(R.string.enable_notification_hint),
-                    Toast.LENGTH_SHORT
-                ).show()
+                // 权限未被授予，不再直接显示 Toast
+                // 而是通过 Repo 发送一个事件
+                scope.launch {
+                    installer.postEvent(InstallerEvent.NOTIFICATION_PERMISSION_MISSING)
+                }
                 return
             }
         }
-
         // 如果权限已被授予，或者系统版本低于 Android 13，则正常显示通知
+        notificationManager.notify(notificationId, notification)
+    }*/
+
+    // 简化 setNotification 方法，移除其中的权限检查逻辑
+    private fun setNotification(notification: Notification? = null) {
+        if (notification == null) {
+            notificationManager.cancel(notificationId)
+            return
+        }
+
+        // 此处的权限检查逻辑已被 ActionHandler 取代，可以直接移除
+        /*
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                scope.launch {
+                    installer.postEvent(InstallerEvent.NOTIFICATION_PERMISSION_MISSING)
+                }
+                return
+            }
+        }
+        */
+
+        // 直接显示通知
         notificationManager.notify(notificationId, notification)
     }
 
@@ -184,8 +212,24 @@ class ForegroundInfoHandler(scope: CoroutineScope, installer: InstallerRepo) :
     private val analyseIntent =
         BroadcastHandler.namedIntent(context, installer, BroadcastHandler.Name.Analyse)
 
-    private val installIntent =
-        BroadcastHandler.namedIntent(context, installer, BroadcastHandler.Name.Install)
+    // 将 installIntent 的目标从 InstallerActivity 改为 InstallTriggerActivity
+    private val installIntent by lazy {
+        // 创建一个指向我们新的透明Activity的 Intent
+        val intent = Intent(context, InstallTriggerActivity::class.java).apply { // <--- 修改这里
+            putExtra(InstallerActivity.KEY_ID, installer.id)
+            // 这里不再需要 action，因为TriggerActivity只有一个功能
+        }
+
+        PendingIntent.getActivity(
+            context,
+            installer.id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+//    private val installIntent =
+//        BroadcastHandler.namedIntent(context, installer, BroadcastHandler.Name.Install)
 
     private val finishIntent =
         BroadcastHandler.namedIntent(context, installer, BroadcastHandler.Name.Finish)
