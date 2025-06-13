@@ -24,6 +24,9 @@ jobs:
     - name: Give gradlew permission
       run: chmod +x gradlew
 
+    - name: Install Gradle
+      run: apt install gradle&&gradle wrapper
+
     - name: Build with Gradle (Release)
       run: ./gradlew assembleRelease
 
